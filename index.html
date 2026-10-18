@@ -1793,6 +1793,62 @@ img { display: block; max-width: 100%; }
   </div>
 </div>
 
+<!-- ============ 举报弹窗 ============ -->
+<div class="modal-mask" id="reportModal">
+  <div class="sheet-card">
+    <button class="auth-close" onclick="closeReportModal()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="sheet-title">🚩 举报作品</div>
+    <div class="field">
+      <div class="field-label">举报类型</div>
+      <select class="input" id="reportReason" style="height:42px">
+        <option value="plagiarism">抄袭盗版</option>
+        <option value="illegal">违法违规内容</option>
+        <option value="ads">广告引流</option>
+        <option value="other">其他问题</option>
+      </select>
+    </div>
+    <div class="field">
+      <div class="field-label">补充说明（选填）</div>
+      <textarea class="input" id="reportDetail" style="min-height:90px" placeholder="描述具体问题，例如：第3章抄袭了《xxx》"></textarea>
+    </div>
+    <div id="reportHint" style="font-size:13px;color:#999;margin-bottom:12px">恶意举报会被限制 7 天内不能再举报</div>
+    <button class="auth-submit" onclick="submitReport()">提交举报</button>
+  </div>
+</div>
+
+<!-- ============ 发消息弹窗 ============ -->
+<div class="modal-mask" id="msgModal">
+  <div class="sheet-card">
+    <button class="auth-close" onclick="closeMsgModal()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="sheet-title">✉️ 发消息</div>
+    <div class="field">
+      <div class="field-label">收件人（用户名）</div>
+      <input class="input" type="text" id="msgTo" placeholder="输入对方用户名">
+    </div>
+    <div class="field">
+      <div class="field-label">消息内容</div>
+      <textarea class="input" id="msgContent" style="min-height:100px" placeholder="说点什么..."></textarea>
+    </div>
+    <button class="auth-submit" onclick="submitMessage()">发送</button>
+  </div>
+</div>
+
+<!-- ============ 消息中心弹窗 ============ -->
+<div class="modal-mask" id="inboxModal">
+  <div class="sheet-card" style="max-width:560px">
+    <button class="auth-close" onclick="closeInboxModal()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="sheet-title">✉️ 消息中心</div>
+    <div id="inboxList" style="max-height:350px;overflow-y:auto;margin-bottom:14px"></div>
+    <button class="auth-submit" onclick="openMsgModal()">写新消息</button>
+  </div>
+</div>
+
 <!-- ============ 底部导航 ============ -->
 <nav class="tabbar">
   <div class="tabbar-inner">
@@ -2630,6 +2686,9 @@ async function renderDetail(bookId) {
           <button class="btn ${inShelf ? 'btn-ghost on' : 'btn-line'}" onclick="toggleShelf(${b.id})">
             ${inShelf ? '✓ 已在书架' : '+ 加入书架'}
           </button>
+          <button class="btn btn-line" onclick="openReportModal(${b.id}, '${esc(b.title)}')">
+            🚩 举报
+          </button>
         </div>
       </div>
     </div>
@@ -3060,6 +3119,10 @@ async function renderProfileAsync() {
           <div><div class="pstat-v">${Object.keys(readProgress).length}</div><div class="pstat-k">在读</div></div>
           <div><div class="pstat-v">${myBooks.length}</div><div class="pstat-k">作品</div></div>
         </div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-line" style="font-size:13px;padding:7px 14px" onclick="openInboxModal()">✉️ 消息中心</button>
+          <button class="btn btn-line" style="font-size:13px;padding:7px 14px" onclick="openMsgModal()">✏️ 发消息</button>
+        </div>
       </div>
     </div>
 
@@ -3276,6 +3339,79 @@ async function api(path, body) {
 }
 
 function startCountdown(btnId, key) {
+
+/* ============================================================
+   举报 + 站内消息
+   ============================================================ */
+let reportBookId = 0;
+
+function openReportModal(bookId, title) {
+  if (!currentUser) { alert('请先登录再举报'); return; }
+  reportBookId = bookId;
+  $('reportHint').textContent = '正在举报：《' + title + '》。恶意举报会被限制 7 天内不能再举报';
+  $('reportDetail').value = '';
+  $('reportModal').classList.add('show');
+}
+function closeReportModal() { $('reportModal').classList.remove('show'); }
+
+async function submitReport() {
+  try {
+    await api('/report', {
+      book_id: reportBookId,
+      reporter: currentUser,
+      reason: $('reportReason').value,
+      detail: $('reportDetail').value.trim()
+    });
+    alert('举报已提交，管理员会尽快处理');
+    closeReportModal();
+  } catch (e) { alert(e.message); }
+}
+
+/* 消息 */
+function openMsgModal(toUser) {
+  if (!currentUser) { alert('请先登录'); return; }
+  $('msgTo').value = toUser || '';
+  $('msgContent').value = '';
+  $('msgModal').classList.add('show');
+}
+function closeMsgModal() { $('msgModal').classList.remove('show'); }
+
+async function submitMessage() {
+  const to = $('msgTo').value.trim();
+  const content = $('msgContent').value.trim();
+  if (!to) { alert('请输入收件人用户名'); return; }
+  if (!content) { alert('请输入消息内容'); return; }
+  try {
+    await api('/send-message', { from_user: currentUser, to_user: to, content });
+    alert('发送成功');
+    closeMsgModal();
+  } catch (e) { alert(e.message); }
+}
+
+async function openInboxModal() {
+  if (!currentUser) { alert('请先登录'); return; }
+  $('inboxModal').classList.add('show');
+  await loadInbox();
+}
+function closeInboxModal() { $('inboxModal').classList.remove('show'); }
+
+async function loadInbox() {
+  try {
+    const data = await api('/list-messages', { user: currentUser });
+    const box = $('inboxList');
+    if (!data.inbox.length) { box.innerHTML = '<div style="text-align:center;color:#999;padding:30px">暂无消息</div>'; return; }
+    box.innerHTML = data.inbox.map(m => `
+      <div style="padding:12px;border-bottom:1px solid var(--line)">
+        <div style="font-size:13px;color:#999;margin-bottom:4px">
+          来自 <b style="color:var(--text)">${esc(m.from_user)}</b> · ${new Date(m.created_at).toLocaleString()}
+          ${m.read_at ? '' : '<span style="color:var(--tomato);margin-left:6px">未读</span>'}
+        </div>
+        <div style="font-size:14px;color:var(--text-2)">${esc(m.content)}</div>
+      </div>`).join('');
+    await api('/mark-read', { user: currentUser });
+  } catch (e) { $('inboxList').innerHTML = '<div style="color:#999;text-align:center;padding:20px">' + e.message + '</div>'; }
+}
+
   const btn = $(btnId);
   let left = 60;
   codeCountdown[key] = true;
