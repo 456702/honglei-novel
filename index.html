@@ -2120,6 +2120,10 @@ function isAdmin() {
   return currentUser === 'zhangjiuyu1' || currentUser === '5418' ||
          !!(USERS[currentUser] && USERS[currentUser].is_admin);
 }
+function isAdminOf(name) {
+  return name === 'zhangjiuyu1' || name === '5418' ||
+         !!(USERS[name] && USERS[name].is_admin);
+}
 
 /** 作者显示名：管理员发的书统一显示「管理员」，不暴露账号名 */
 function authorName(book) {
@@ -3498,13 +3502,15 @@ function renderAuthorProfile() {
   const c = $('authorProfileContent');
   const author = currentAuthorView;
   const books = BOOKS.filter(b => b.author === author);
+  const displayName = authorName({ author });
   const me = currentUser === author;
   const following = isFollowingAuthor(author);
+  const myAvatar = (me && avatarData) ? `<img src="${avatarData}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : esc(author.charAt(0).toUpperCase());
 
   c.innerHTML = `
     <div style="background:#fff;border-radius:14px;padding:28px;box-shadow:var(--shadow);text-align:center">
-      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#FF6B6D,#E63A3C);color:#fff;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">${esc(author.charAt(0).toUpperCase())}</div>
-      <div style="font-size:20px;font-weight:700;margin-bottom:6px">${esc(author)}</div>
+      <div style="width:72px;height:72px;border-radius:50%;overflow:hidden;background:linear-gradient(135deg,#FF6B6D,#E63A3C);color:#fff;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">${myAvatar}</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:6px">${esc(displayName)} ${isAdminOf(author) ? '<span class="vip-tag">管理员</span>' : ''}</div>
       <div style="font-size:13px;color:#999;margin-bottom:16px">${books.length} 部作品 · ${fanCountOf(author)} 粉丝</div>
       ${me ? '<div style="font-size:12px;color:#999">这是你的主页</div>' : `
         <button class="btn ${following ? 'btn-ghost on' : 'btn-primary'}" style="min-width:120px" onclick="toggleAuthorFollow()">
