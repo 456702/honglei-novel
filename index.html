@@ -4260,6 +4260,9 @@ async function afterAuthSync() {
     if (sr.bookIds && sr.bookIds.length) {
       shelf = sr.bookIds;
       localStorage.setItem('novelShelf', JSON.stringify(shelf));
+    } else if (shelf.length) {
+      // 服务器为空但本地有数据，把本地推上去
+      await api('/save-shelf', { user: currentUser, bookIds: shelf });
     }
   } catch(e) {}
   try {
@@ -4270,6 +4273,11 @@ async function afterAuthSync() {
         readProgress[it.book_id] = { idx: parseInt(it.chapter_id)||0, title: it.progress||'', time: Date.now() };
       }
       localStorage.setItem('novelProgress', JSON.stringify(readProgress));
+    } else if (Object.keys(readProgress).length) {
+      // 服务器为空但本地有，推上去
+      for (const [bid, p] of Object.entries(readProgress)) {
+        await api('/save-progress', { user: currentUser, bookId: bid, chapterId: p.idx, progress: p.title });
+      }
     }
   } catch(e) {}
   refreshAfterAuth();
