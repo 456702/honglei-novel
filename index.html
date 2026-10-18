@@ -2193,8 +2193,18 @@ function coverInner(book) {
   return `<span class="cv-text">${esc(book.title.slice(0, 6))}</span>`;
 }
 
-function saveShelf() { localStorage.setItem('novelShelf', JSON.stringify(shelf)); }
-function saveProgress() { localStorage.setItem('novelProgress', JSON.stringify(readProgress)); }
+function saveShelf() {
+  localStorage.setItem('novelShelf', JSON.stringify(shelf));
+  if (currentUser) api('/save-shelf', { user: currentUser, bookIds: shelf }).catch(()=>{});
+}
+function saveProgress() {
+  localStorage.setItem('novelProgress', JSON.stringify(readProgress));
+  if (currentUser) {
+    for (const [bid, p] of Object.entries(readProgress)) {
+      api('/save-progress', { user: currentUser, bookId: bid, chapterId: p.idx, progress: p.title }).catch(()=>{});
+    }
+  }
+}
 
 function isAdmin() {
   return currentUser === 'zhangjiuyu1' || currentUser === '5418' ||
@@ -4242,6 +4252,25 @@ async function afterAuthSync() {
     const r = await api('/balance', { user: currentUser });
     leiBi = r.leiBi;
     localStorage.setItem('leiBi', String(leiBi));
+    if (r.avatarUrl) localStorage.setItem('avatarUrl', r.avatarUrl);
+  } catch(e) {}
+  // 从服务器拉书架和阅读进度
+  try {
+    const sr = await api('/load-shelf', { user: currentUser });
+    if (sr.bookIds && sr.bookIds.length) {
+      shelf = sr.bookIds;
+      localStorage.setItem('novelShelf', JSON.stringify(shelf));
+    }
+  } catch(e) {}
+  try {
+    const pr = await api('/load-progress', { user: currentUser });
+    if (pr.items && pr.items.length) {
+      readProgress = {};
+      for (const it of pr.items) {
+        readProgress[it.book_id] = { idx: parseInt(it.chapter_id)||0, title: it.progress||'', time: Date.now() };
+      }
+      localStorage.setItem('novelProgress', JSON.stringify(readProgress));
+    }
   } catch(e) {}
   refreshAfterAuth();
   if (currentView === 'detail' && currentBookId != null) renderDetail(currentBookId);
