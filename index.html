@@ -3762,17 +3762,19 @@ function pickPayMethod(m) {
   $('payWx').classList.toggle('active', m === 'wx');
   $('payZfb').classList.toggle('active', m === 'zfb');
 }
-function doRecharge() {
+async function doRecharge() {
   if (!rechargeAmount) { alert('请选择充值金额'); return; }
-  // 实际接入支付时，这里调用后端接口生成支付链接
-  // 目前先模拟：充值成功后加雷币
-  const getBi = rechargeAmount * 10;
-  leiBi += getBi;
-  localStorage.setItem('leiBi', String(leiBi));
-  $('rechargeBalance').textContent = leiBi;
-  alert(`充值成功！+${getBi} 雷币\n（实际支付需接入微信/支付宝商户接口）`);
-  closeRecharge();
-  renderProfile();
+  try {
+    const r = await api('/recharge', { user: currentUser, amount: rechargeAmount });
+    leiBi = r.leiBi;
+    localStorage.setItem('leiBi', String(leiBi));
+    $('rechargeBalance').textContent = leiBi;
+    alert(`充值成功！+${r.added} 雷币\n当前余额：${leiBi}`);
+    closeRecharge();
+    renderProfile();
+  } catch(e) {
+    alert('充值失败：' + e.message);
+  }
 }
 
 /* 作者关注列表（存在 localStorage） */
@@ -4153,6 +4155,8 @@ async function submitLogin(ev) {
     currentUser = r.username;
     currentToken = r.token || null;
     currentEmail = r.email || '';
+    leiBi = r.leiBi || 0;
+    localStorage.setItem('leiBi', String(leiBi));
     localStorage.setItem('novelUser', currentUser);
     if (currentToken) localStorage.setItem('novelToken', currentToken);
     if (currentEmail) localStorage.setItem('novelEmail', currentEmail);
@@ -4227,6 +4231,11 @@ async function afterAuthSync() {
   await loadMyFollowsFromServer();
   await syncMyFollows();
   await loadFollowCounts();
+  try {
+    const r = await api('/balance', { user: currentUser });
+    leiBi = r.leiBi;
+    localStorage.setItem('leiBi', String(leiBi));
+  } catch(e) {}
   refreshAfterAuth();
   if (currentView === 'detail' && currentBookId != null) renderDetail(currentBookId);
 }
