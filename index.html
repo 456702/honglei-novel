@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#FF4D4F">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.github.io https://*.workers.dev; img-src 'self' data: https: blob:; media-src 'self' https: blob:; connect-src 'self' https://*.supabase.co https://*.github.io;">
+<meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://api.resend.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co;">
 <meta name="referrer" content="no-referrer">
 <title>红雷小说 - 免费小说阅读网</title>
@@ -5304,6 +5306,35 @@ if (typeof module !== 'undefined' && module.exports) {
   if (window.top !== window.self) {
     document.documentElement.innerHTML = '<div style="padding:40px;text-align:center;font-family:sans-serif">本站不允许被嵌入</div>';
   }
+
+  /* 7. console.log 检测 DevTools */
+  var checkConsole = function() {
+    var startTime = performance.now();
+    console.log('%c', 'width:999px;height:999px;');
+    console.clear();
+    if (performance.now() - startTime > 100) {
+      if (!devtoolsOpen) { devtoolsOpen = true; setBlur(true); }
+    }
+  };
+  setInterval(checkConsole, 2000);
+
+  /* 8. 禁选择全部 */
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+      var t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      e.preventDefault();
+    }
+  }, true);
+
+  /* 9. 检测开发者工具 dock 模式 */
+  var threshold = 160;
+  setInterval(function() {
+    if (window.outerWidth - window.innerWidth > threshold ||
+        window.outerHeight - window.innerHeight > threshold) {
+      if (!devtoolsOpen) { devtoolsOpen = true; setBlur(true); }
+    }
+  }, 1000);
 })();
 </script>
 </body>
