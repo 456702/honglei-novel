@@ -1903,6 +1903,22 @@ img { display: block; max-width: 100%; }
   </div>
 </div>
 
+<!-- ============ 评分弹窗 ============ -->
+<div class="modal-mask" id="rateModal">
+  <div class="sheet-card" style="text-align:center">
+    <button class="auth-close" onclick="closeRateModal()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="sheet-title">⭐ 评分</div>
+    <div id="rateBookTitle" style="font-size:14px;color:#666;margin-bottom:16px"></div>
+    <div style="font-size:32px;letter-spacing:6px;margin-bottom:16px;cursor:pointer" id="rateStars">
+      <span data-v="1" onclick="setRateStars(1)">☆</span><span data-v="2" onclick="setRateStars(2)">☆</span><span data-v="3" onclick="setRateStars(3)">☆</span><span data-v="4" onclick="setRateStars(4)">☆</span><span data-v="5" onclick="setRateStars(5)">☆</span>
+    </div>
+    <div id="rateHint" style="font-size:13px;color:#999;margin-bottom:16px">点星星打分</div>
+    <button class="auth-submit" onclick="submitRate()">提交评分</button>
+  </div>
+</div>
+
 <!-- ============ 举报弹窗 ============ -->
 <div class="modal-mask" id="reportModal">
   <div class="sheet-card">
@@ -2143,10 +2159,20 @@ async function loadBooksFromDB() {
     color2: b.color2 || '#E64A19',
     wordCount: Number(b.word_count) || 0,
     chapterCount: Number(b.chapter_count) || 0,
-    rating: Number(b.rating) || 8.0,
+    rating: Number(b.rating) || 0,
+    ratingCount: Number(b.rating_count) || 0,
     createdAt: b.created_at
   }));
 }
+
+/* 浏览计数（本地统计，每打开一次详情页+1） */
+const VIEWS = {};
+try { Object.assign(VIEWS, JSON.parse(localStorage.getItem('novelViews') || '{}')); } catch(e) {}
+function bumpView(bookId) {
+  VIEWS[bookId] = (VIEWS[bookId] || 0) + 1;
+  localStorage.setItem('novelViews', JSON.stringify(VIEWS));
+}
+function viewCountOf(bookId) { return VIEWS[bookId] || 0; }
 
 /** 加载每本书的追更数（匿名可读） */
 async function loadFollowCounts() {
@@ -2600,7 +2626,7 @@ function renderFeatureRow() {
         <div class="feature-title">${esc(b.title)}</div>
         <div class="feature-desc">${esc(b.desc || '')}</div>
         <div class="feature-foot">
-          <span class="score-pill">${(b.rating || 8).toFixed(1)}分</span>
+          <span class="score-pill">${b.rating > 0 ? b.rating.toFixed(1) + '分' : '暂无评分'}</span>
           <span>${esc(authorName(b))}</span>
           <span>${fmtWords(b.wordCount)}</span>
           ${followCountOf(b.id) ? `<span>${fmtNum(followCountOf(b.id))}人追更</span>` : ''}
@@ -2721,6 +2747,7 @@ function renderRankList() {
 async function renderDetail(bookId) {
   const b = getBook(bookId);
   if (!b) { $('detailContent').innerHTML = `<div class="loading">书籍不存在</div>`; return; }
+  bumpView(bookId);
   const inShelf = shelf.includes(b.id);
   const following = isFollowing(b.id);
   const fCount = followCountOf(b.id);
@@ -2739,10 +2766,10 @@ async function renderDetail(bookId) {
           <span>${esc(b.status || '连载')}</span>
         </div>
         <div class="detail-stats">
-          <div class="stat"><div class="stat-val">${esc(b.rating || '8.0')}<small>分</small></div><div class="stat-key">作品评分</div></div>
+          <div class="stat"><div class="stat-val">${b.rating > 0 ? b.rating.toFixed(1) : '暂无'}<small>${b.rating > 0 ? '分' : '评分'}</small></div><div class="stat-key">作品评分${b.ratingCount ? ' · ' + b.ratingCount + '人评' : ''}</div></div>
+          <div class="stat"><div class="stat-val">${fmtNum(viewCountOf(b.id))}<small>次</small></div><div class="stat-key">浏览</div></div>
           <div class="stat"><div class="stat-val">${fmtNum(fCount)}<small>人</small></div><div class="stat-key">追更</div></div>
           <div class="stat"><div class="stat-val">${b.chapterCount || chapters.length}<small>章</small></div><div class="stat-key">章节总数</div></div>
-          <div class="stat"><div class="stat-val">${fmtWords(b.wordCount)}</div><div class="stat-key">作品字数</div></div>
         </div>
         <div class="detail-tags">
           ${(b.tags || []).map(t => `<span class="dtag">${esc(t)}</span>`).join('')}
@@ -2764,6 +2791,9 @@ async function renderDetail(bookId) {
                </button>`}
           <button class="btn ${inShelf ? 'btn-ghost on' : 'btn-line'}" onclick="toggleShelf(${b.id})">
             ${inShelf ? '✓ 已在书架' : '+ 加入书架'}
+          </button>
+          <button class="btn btn-line" onclick="openRateModal(${b.id}, '${esc(b.title)}')">
+            ⭐ 评分
           </button>
           <button class="btn btn-line" onclick="openReportModal(${b.id}, '${esc(b.title)}')">
             🚩 举报
@@ -3420,8 +3450,43 @@ async function api(path, body) {
    举报 + 站内私信（洛谷式聊天界面）
    ============================================================ */
 let reportBookId = 0;
+let rateBookId = 0;
+let rateValue = 0;
 let msgContacts = [];       // [{name, last, time}]
 let currentChatUser = null;
+
+/* 评分 */
+function openRateModal(bookId, title) {
+  if (!currentUser) { alert('请先登录再评分'); return; }
+  rateBookId = bookId;
+  rateValue = 0;
+  $('rateBookTitle').textContent = '《' + title + '》';
+  setRateStars(0);
+  $('rateModal').classList.add('show');
+}
+function closeRateModal() { $('rateModal').classList.remove('show'); }
+function setRateStars(v) {
+  rateValue = v;
+  const stars = $('rateStars').children;
+  for (let i = 0; i < stars.length; i++) {
+    stars[i].textContent = i < v ? '★' : '☆';
+    stars[i].style.color = i < v ? '#FFB800' : '#ccc';
+  }
+  const hints = ['', '很差', '一般', '还行', '推荐', '力荐'];
+  $('rateHint').textContent = hints[v] || '点星星打分';
+}
+function submitRate() {
+  if (!rateValue) { alert('请先选星级'); return; }
+  const b = getBook(rateBookId);
+  if (b) {
+    const oldTotal = (b.rating || 0) * (b.ratingCount || 0);
+    b.ratingCount = (b.ratingCount || 0) + 1;
+    b.rating = Math.round((oldTotal + rateValue * 2) / b.ratingCount * 10) / 10;
+  }
+  alert('评分成功！当前评分：' + (b ? b.rating.toFixed(1) + '分' : ''));
+  closeRateModal();
+  renderDetail(rateBookId);
+}
 
 function openReportModal(bookId, title) {
   if (!currentUser) { alert('请先登录再举报'); return; }
