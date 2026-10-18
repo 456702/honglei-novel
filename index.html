@@ -1703,6 +1703,11 @@ img { display: block; max-width: 100%; }
 
     <div class="alert alert-error" id="authAlert"></div>
 
+    <div class="auth-method-tabs" style="display:flex;gap:0;margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--line-2)">
+      <button type="button" class="auth-method-tab active" id="methodEmail" onclick="switchAuthMethod('email')" style="flex:1;padding:9px;border:none;background:var(--tomato);color:#fff;font-size:13px;cursor:pointer">📧 邮箱验证</button>
+      <button type="button" class="auth-method-tab" id="methodPhone" onclick="switchAuthMethod('phone')" style="flex:1;padding:9px;border:none;background:#f5f5f5;color:#666;font-size:13px;cursor:pointer">📱 手机验证</button>
+    </div>
+
     <!-- ===== 登录表单 ===== -->
     <form id="loginForm" onsubmit="submitLogin(event)">
       <div class="field">
@@ -1724,8 +1729,8 @@ img { display: block; max-width: 100%; }
 
       <div class="field">
         <div class="field-label">
-          邮箱验证码
-          <span class="field-hint">发送至注册邮箱</span>
+          <span id="loginCodeLabel">邮箱验证码</span>
+          <span class="field-hint" id="loginCodeHint">发送至注册邮箱</span>
         </div>
         <div class="code-row">
           <div class="field-box">
@@ -1752,7 +1757,18 @@ img { display: block; max-width: 100%; }
         </div>
       </div>
 
-      <div class="field">
+      <div class="field" id="regPhoneField" style="display:none">
+        <div class="field-label">手机号<span class="field-hint">用于接收验证码</span></div>
+        <div class="code-row">
+          <div class="field-box">
+            <span class="f-ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></span>
+            <input class="input" type="tel" id="regPhone" placeholder="输入11位手机号" maxlength="11" inputmode="numeric">
+          </div>
+          <button class="code-btn" type="button" id="regPhoneCodeBtn" onclick="sendRegisterCode()">获取验证码</button>
+        </div>
+      </div>
+
+      <div class="field" id="regEmailField">
         <div class="field-label">邮箱<span class="field-hint">用于接收验证码</span></div>
         <div class="code-row">
           <div class="field-box">
@@ -3535,6 +3551,29 @@ function startCountdown(btnId, key) {
   codeCountdown[key] = setInterval(tick, 1000);
 }
 
+/* ---------- 登录方式切换：邮箱 / 手机 ---------- */
+let authMethod = 'email';
+
+function switchAuthMethod(m) {
+  authMethod = m;
+  const emailBtn = $('methodEmail'), phoneBtn = $('methodPhone');
+  if (m === 'email') {
+    emailBtn.style.background = 'var(--tomato)'; emailBtn.style.color = '#fff';
+    phoneBtn.style.background = '#f5f5f5'; phoneBtn.style.color = '#666';
+    $('regEmailField').style.display = '';
+    $('regPhoneField').style.display = 'none';
+    $('loginCodeLabel').textContent = '邮箱验证码';
+    $('loginCodeHint').textContent = '发送至注册邮箱';
+  } else {
+    phoneBtn.style.background = 'var(--tomato)'; phoneBtn.style.color = '#fff';
+    emailBtn.style.background = '#f5f5f5'; emailBtn.style.color = '#666';
+    $('regEmailField').style.display = 'none';
+    $('regPhoneField').style.display = '';
+    $('loginCodeLabel').textContent = '短信验证码';
+    $('loginCodeHint').textContent = '发送至绑定手机号';
+  }
+}
+
 /* ---------- 登录：发送验证码 ---------- */
 async function sendLoginCode() {
   const username = $('loginUser').value.trim();
@@ -3545,8 +3584,8 @@ async function sendLoginCode() {
   const btn = $('loginCodeBtn');
   btn.disabled = true; btn.textContent = '发送中...';
   try {
-    const r = await api('/send-code', { purpose: 'login', username, password });
-    showAuthAlert(`验证码已发送至 ${r.maskedEmail || '你的邮箱'}，5 分钟内有效`, 'ok');
+    const r = await api('/send-code', { purpose: 'login', username, password, method: authMethod });
+    showAuthAlert(`验证码已发送${authMethod === 'phone' ? '至手机' : '至邮箱'}，5 分钟内有效`, 'ok');
     startCountdown('loginCodeBtn', 'login');
     $('loginCode').focus();
   } catch (e) {
@@ -3558,16 +3597,26 @@ async function sendLoginCode() {
 /* ---------- 注册：发送验证码 ---------- */
 async function sendRegisterCode() {
   const username = $('regUser').value.trim();
-  const email = $('regEmail').value.trim();
   if (!username || username.length < 2) { showAuthAlert('请输入 2-16 位的用户名'); $('regUser').focus(); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showAuthAlert('请输入正确的邮箱地址'); $('regEmail').focus(); return; }
 
-  const btn = $('regCodeBtn');
+  const isPhone = authMethod === 'phone';
+  const contact = isPhone ? $('regPhone').value.trim() : $('regEmail').value.trim();
+  const btn = isPhone ? $('regPhoneCodeBtn') : $('regCodeBtn');
+
+  if (isPhone) {
+    if (!/^1[3-9]\d{9}$/.test(contact)) { showAuthAlert('请输入正确的11位手机号'); $('regPhone').focus(); return; }
+  } else {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) { showAuthAlert('请输入正确的邮箱地址'); $('regEmail').focus(); return; }
+  }
+
   btn.disabled = true; btn.textContent = '发送中...';
   try {
-    const r = await api('/send-code', { purpose: 'register', username, email });
-    showAuthAlert(`验证码已发送至 ${r.maskedEmail || email}，5 分钟内有效`, 'ok');
-    startCountdown('regCodeBtn', 'register');
+    const payload = isPhone
+      ? { purpose: 'register', username, phone: contact, method: 'phone' }
+      : { purpose: 'register', username, email: contact };
+    const r = await api('/send-code', payload);
+    showAuthAlert(`验证码已发送${isPhone ? '至手机 ' + contact.slice(0,3) + '****' + contact.slice(7) : '至 ' + contact}，5 分钟内有效`, 'ok');
+    startCountdown(isPhone ? 'regPhoneCodeBtn' : 'regCodeBtn', 'register');
     $('regCode').focus();
   } catch (e) {
     btn.disabled = false; btn.textContent = '获取验证码';
@@ -3615,14 +3664,19 @@ async function submitLogin(ev) {
 async function submitRegister(ev) {
   ev.preventDefault();
   const username = $('regUser').value.trim();
-  const email = $('regEmail').value.trim();
   const code = $('regCode').value.trim();
   const pwd = $('regPwd').value;
-  const pwd2 = $('regPwd2').value;
+  const pwd2 = $('regPwd').value;
+  const isPhone = authMethod === 'phone';
+  const contact = isPhone ? $('regPhone').value.trim() : $('regEmail').value.trim();
 
   if (username.length < 2 || username.length > 16) { showAuthAlert('用户名需要 2-16 个字符'); $('regUser').focus(); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showAuthAlert('请输入正确的邮箱地址'); $('regEmail').focus(); return; }
-  if (!/^\d{6}$/.test(code)) { showAuthAlert('请输入 6 位数字邮箱验证码'); $('regCode').focus(); return; }
+  if (isPhone) {
+    if (!/^1[3-9]\d{9}$/.test(contact)) { showAuthAlert('请输入正确的11位手机号'); $('regPhone').focus(); return; }
+  } else {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact)) { showAuthAlert('请输入正确的邮箱地址'); $('regEmail').focus(); return; }
+  }
+  if (!/^\d{6}$/.test(code)) { showAuthAlert('请输入 6 位数字验证码'); $('regCode').focus(); return; }
   if (!checkPwdStrength()) { showAuthAlert('密码需 6-20 位，且同时包含大写字母、小写字母、数字和特殊字符'); $('regPwd').focus(); return; }
   if (pwd !== pwd2) { showAuthAlert('两次输入的密码不一致，请重新确认'); $('regPwd2').focus(); return; }
 
@@ -3630,14 +3684,17 @@ async function submitRegister(ev) {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>注册中...';
   try {
-    const r = await api('/register', { username, email, code, password: pwd });
+    const payload = isPhone
+      ? { username, phone: contact, code, password: pwd, method: 'phone' }
+      : { username, email: contact, code, password: pwd };
+    const r = await api('/register', payload);
     currentUser = r.username;
     currentToken = r.token || null;
-    currentEmail = email;
+    currentEmail = isPhone ? '' : contact;
     localStorage.setItem('novelUser', currentUser);
     if (currentToken) localStorage.setItem('novelToken', currentToken);
-    localStorage.setItem('novelEmail', currentEmail);
-    USERS[currentUser] = { email: email, is_admin: false };
+    if (currentEmail) localStorage.setItem('novelEmail', currentEmail);
+    USERS[currentUser] = { email: currentEmail, is_admin: false };
     closeAuth();
     renderUserArea();
     showToast(`注册成功，欢迎加入红雷小说，${currentUser}！`);
