@@ -586,6 +586,20 @@ img { display: block; max-width: 100%; }
 }
 .msg-bubble-row.me .msg-bubble { background: var(--tomato); color: #fff; border-bottom-right-radius: 4px; }
 .msg-bubble-row.other .msg-bubble { background: #fff; color: var(--text); border-bottom-left-radius: 4px; box-shadow: var(--shadow-s); }
+
+/* 充值 */
+.recharge-opt {
+  border: 2px solid var(--line-2); border-radius: 10px; padding: 12px 8px;
+  text-align: center; cursor: pointer; transition: all .15s;
+}
+.recharge-opt:hover { border-color: var(--tomato); }
+.recharge-opt.active { border-color: var(--tomato); background: var(--tomato-light); }
+.pay-method {
+  flex: 1; border: 2px solid var(--line-2); border-radius: 10px; padding: 14px;
+  text-align: center; cursor: pointer; transition: all .15s;
+}
+.pay-method:hover { border-color: var(--tomato); }
+.pay-method.active { border-color: var(--tomato); background: var(--tomato-light); }
 .msg-bubble-time { font-size: 11px; color: var(--text-4); margin-top: 4px; }
 .msg-bubble-row.me .msg-bubble-time { text-align: right; }
 .msg-chat-input {
@@ -1905,6 +1919,59 @@ img { display: block; max-width: 100%; }
     </div>
     <button class="auth-submit" onclick="saveChapter()">保存章节</button>
     <div class="auth-foot"><a onclick="resetChapterForm()">清空表单，新增一章</a></div>
+  </div>
+</div>
+
+<!-- ============ 充值弹窗 ============ -->
+<div class="modal-mask" id="rechargeModal">
+  <div class="sheet-card">
+    <button class="auth-close" onclick="closeRecharge()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="sheet-title">💰 充值雷碧</div>
+    <div style="text-align:center;margin:16px 0">
+      <div style="font-size:13px;color:#999">当前余额</div>
+      <div style="font-size:32px;font-weight:700;color:var(--tomato)" id="rechargeBalance">0</div>
+      <div style="font-size:12px;color:#999">雷碧</div>
+    </div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px">选择金额</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="rechargeOptions">
+      <div class="recharge-opt" data-amount="1" onclick="pickRecharge(this)">
+        <div style="font-size:20px;font-weight:700">10</div>
+        <div style="font-size:12px;color:#999">1元</div>
+      </div>
+      <div class="recharge-opt" data-amount="6" onclick="pickRecharge(this)">
+        <div style="font-size:20px;font-weight:700">60</div>
+        <div style="font-size:12px;color:#999">6元</div>
+      </div>
+      <div class="recharge-opt" data-amount="30" onclick="pickRecharge(this)">
+        <div style="font-size:20px;font-weight:700">300</div>
+        <div style="font-size:12px;color:#999">30元</div>
+      </div>
+      <div class="recharge-opt" data-amount="68" onclick="pickRecharge(this)">
+        <div style="font-size:20px;font-weight:700">680</div>
+        <div style="font-size:12px;color:#999">68元</div>
+      </div>
+      <div class="recharge-opt" data-amount="128" onclick="pickRecharge(this)">
+        <div style="font-size:20px;font-weight:700">1280</div>
+        <div style="font-size:12px;color:#999">128元</div>
+      </div>
+      <div class="recharge-opt" data-amount="328" onclick="pickRecharge(this)">
+        <div style="font-size:20px;font-weight:700">3280</div>
+        <div style="font-size:12px;color:#999">328元</div>
+      </div>
+    </div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px">支付方式</div>
+    <div style="display:flex;gap:10px;margin-bottom:18px">
+      <div id="payWx" class="pay-method active" onclick="pickPayMethod('wx')">
+        <div style="font-size:24px">💚</div><div style="font-size:12px">微信支付</div>
+      </div>
+      <div id="payZfb" class="pay-method" onclick="pickPayMethod('zfb')">
+        <div style="font-size:24px">🔷</div><div style="font-size:12px">支付宝</div>
+      </div>
+    </div>
+    <button class="auth-submit" onclick="doRecharge()">立即充值</button>
+    <div style="font-size:11px;color:#bbb;text-align:center;margin-top:10px">充值即表示同意《充值协议》，雷碧仅用于本站打赏作者，不可退款</div>
   </div>
 </div>
 
@@ -3254,8 +3321,9 @@ async function renderProfileAsync() {
           <div><div class="pstat-v">${Object.keys(readProgress).length}</div><div class="pstat-k">在读</div></div>
           <div><div class="pstat-v">${myBooks.length}</div><div class="pstat-k">作品</div></div>
         </div>
-        <div style="margin-top:12px;display:flex;gap:8px">
+        <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
           <button class="btn btn-line" style="font-size:13px;padding:7px 14px" onclick="openMessages()">✉️ 私信</button>
+          <button class="btn btn-primary" style="font-size:13px;padding:7px 14px" onclick="openRecharge()">💰 雷碧: ${leiBi}个 · 充值</button>
         </div>
       </div>
     </div>
@@ -3481,6 +3549,40 @@ let rateValue = 0;
 let msgContacts = [];
 let currentChatUser = null;
 let currentAuthorView = '';
+let leiBi = 0;
+let rechargeAmount = 0;
+let payMethod = 'wx';
+try { leiBi = parseInt(localStorage.getItem('leiBi') || '0'); } catch(e) {}
+
+/* 充值 */
+function openRecharge() {
+  if (!currentUser) { alert('请先登录'); return; }
+  $('rechargeBalance').textContent = leiBi;
+  $('rechargeModal').classList.add('show');
+}
+function closeRecharge() { $('rechargeModal').classList.remove('show'); }
+function pickRecharge(el) {
+  document.querySelectorAll('.recharge-opt').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  rechargeAmount = parseInt(el.dataset.amount);
+}
+function pickPayMethod(m) {
+  payMethod = m;
+  $('payWx').classList.toggle('active', m === 'wx');
+  $('payZfb').classList.toggle('active', m === 'zfb');
+}
+function doRecharge() {
+  if (!rechargeAmount) { alert('请选择充值金额'); return; }
+  // 实际接入支付时，这里调用后端接口生成支付链接
+  // 目前先模拟：充值成功后加雷碧
+  const getBi = rechargeAmount * 10;
+  leiBi += getBi;
+  localStorage.setItem('leiBi', String(leiBi));
+  $('rechargeBalance').textContent = leiBi;
+  alert(`充值成功！+${getBi} 雷碧\n（实际支付需接入微信/支付宝商户接口）`);
+  closeRecharge();
+  renderProfile();
+}
 
 /* 作者关注列表（存在 localStorage） */
 let authorFollows = [];
