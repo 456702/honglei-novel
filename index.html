@@ -3306,6 +3306,13 @@ async function renderProfileAsync() {
     return;
   }
 
+  // 每次打开个人中心都从服务器拉最新余额
+  try {
+    const r = await api('/balance', { user: currentUser });
+    leiBi = r.leiBi;
+    localStorage.setItem('leiBi', String(leiBi));
+  } catch(e) {}
+
   const myBooks = isAdmin() ? BOOKS : BOOKS.filter(b => b.author === currentUser);
 
   // 我追更的书：按「追更人数」从大到小排列
