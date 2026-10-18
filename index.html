@@ -3338,8 +3338,6 @@ async function api(path, body) {
   return data;
 }
 
-function startCountdown(btnId, key) {
-
 /* ============================================================
    举报 + 站内消息
    ============================================================ */
@@ -3412,6 +3410,7 @@ async function loadInbox() {
   } catch (e) { $('inboxList').innerHTML = '<div style="color:#999;text-align:center;padding:20px">' + e.message + '</div>'; }
 }
 
+function startCountdown(btnId, key) {
   const btn = $(btnId);
   let left = 60;
   codeCountdown[key] = true;
