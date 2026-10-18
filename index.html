@@ -1523,6 +1523,11 @@ img { display: block; max-width: 100%; }
     </div>
   </section>
 
+  <!-- ===== 作者主页 ===== -->
+  <section id="view-author" class="view">
+    <div id="authorProfileContent" style="max-width:800px;margin:0 auto"></div>
+  </section>
+
   <!-- ===== 我的发布 ===== -->
   <section id="view-mypublish" class="view">
     <div class="sec-head">
@@ -1900,6 +1905,18 @@ img { display: block; max-width: 100%; }
     </div>
     <button class="auth-submit" onclick="saveChapter()">保存章节</button>
     <div class="auth-foot"><a onclick="resetChapterForm()">清空表单，新增一章</a></div>
+  </div>
+</div>
+
+<!-- ============ 头像选择弹窗 ============ -->
+<div class="modal-mask" id="avatarModal">
+  <div class="sheet-card" style="text-align:center">
+    <button class="auth-close" onclick="closeAvatarModal()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="sheet-title">🎨 选择头像颜色</div>
+    <div id="avatarColors" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0"></div>
+    <div style="font-size:12px;color:#999">头像会显示你的用户名首字母</div>
   </div>
 </div>
 
@@ -2515,7 +2532,8 @@ function moderateText(text) {
 const VIEW_IDS = {
   home: 'view-home', category: 'view-category', rank: 'view-rank',
   detail: 'view-detail', reader: 'view-reader', shelf: 'view-shelf',
-  profile: 'view-profile', mypublish: 'view-mypublish', messages: 'view-messages'
+  profile: 'view-profile', mypublish: 'view-mypublish', messages: 'view-messages',
+  author: 'view-author'
 };
 
 function navigate(view, bookId, chapterIdx) {
@@ -2760,7 +2778,7 @@ async function renderDetail(bookId) {
       <div class="detail-main">
         <div class="detail-title">${esc(b.title)}</div>
         <div class="detail-author">
-          <span class="author-pill">${esc(authorName(b))}</span>
+          <span class="author-pill" style="cursor:pointer" onclick="openAuthorProfile('${esc(b.author)}')">${esc(authorName(b))}</span>
           <span>${esc(b.category || '')}</span>
           <span>·</span>
           <span>${esc(b.status || '连载')}</span>
@@ -2795,9 +2813,9 @@ async function renderDetail(bookId) {
           <button class="btn btn-line" onclick="openRateModal(${b.id}, '${esc(b.title)}')">
             ⭐ 评分
           </button>
-          <button class="btn btn-line" onclick="openReportModal(${b.id}, '${esc(b.title)}')">
+          ${!isMyBook(b) ? `<button class="btn btn-line" onclick="openReportModal(${b.id}, '${esc(b.title)}')">
             🚩 举报
-          </button>
+          </button>` : ''}
         </div>
       </div>
     </div>
@@ -3215,7 +3233,7 @@ async function renderProfileAsync() {
   c.innerHTML = `
     ${rejected.length ? rejectNoticeHtml(rejected) : ''}
     <div class="profile-head">
-      <div class="profile-avatar">${esc(currentUser.charAt(0).toUpperCase())}</div>
+      <div class="profile-avatar" style="cursor:pointer;background:linear-gradient(135deg,${AVATAR_COLORS[avatarColorIdx][0]},${AVATAR_COLORS[avatarColorIdx][1]})" onclick="openAvatarPicker()" title="点击换头像">${esc(currentUser.charAt(0).toUpperCase())}</div>
       <div style="flex:1;min-width:0">
         <div class="profile-name">
           ${esc(currentUser)}
@@ -3452,8 +3470,94 @@ async function api(path, body) {
 let reportBookId = 0;
 let rateBookId = 0;
 let rateValue = 0;
-let msgContacts = [];       // [{name, last, time}]
+let msgContacts = [];
 let currentChatUser = null;
+let currentAuthorView = '';
+
+/* 作者关注列表（存在 localStorage） */
+let authorFollows = [];
+try { authorFollows = JSON.parse(localStorage.getItem('novelAuthorFollows') || '[]'); } catch(e) {}
+function isFollowingAuthor(name) { return authorFollows.includes(name); }
+function fanCountOf(name) {
+  // 简单统计：从 localStorage 里数
+  try { return authorFollows.filter(a => a === name).length; } catch(e) { return 0; }
+}
+
+function openAuthorProfile(author) {
+  if (!author) return;
+  currentAuthorView = author;
+  navigate('author');
+  renderAuthorProfile();
+}
+
+function renderAuthorProfile() {
+  const c = $('authorProfileContent');
+  const author = currentAuthorView;
+  const books = BOOKS.filter(b => b.author === author);
+  const me = currentUser === author;
+  const following = isFollowingAuthor(author);
+
+  c.innerHTML = `
+    <div style="background:#fff;border-radius:14px;padding:28px;box-shadow:var(--shadow);text-align:center">
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#FF6B6D,#E63A3C);color:#fff;font-size:30px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">${esc(author.charAt(0).toUpperCase())}</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:6px">${esc(author)}</div>
+      <div style="font-size:13px;color:#999;margin-bottom:16px">${books.length} 部作品 · ${fanCountOf(author)} 粉丝</div>
+      ${me ? '<div style="font-size:12px;color:#999">这是你的主页</div>' : `
+        <button class="btn ${following ? 'btn-ghost on' : 'btn-primary'}" style="min-width:120px" onclick="toggleAuthorFollow()">
+          ${following ? '✓ 已关注' : '+ 关注'}
+        </button>`}
+    </div>
+    <div class="sec-head" style="margin-top:24px">
+      <div class="sec" style="font-size:16px">📖 ${esc(author)}的作品</div>
+    </div>
+    <div class="book-grid">
+      ${books.map(b => `
+        <div class="book-card" onclick="navigate('detail', ${b.id})">
+          <div class="book-cover" style="background:linear-gradient(135deg,${b.color1},${b.color2})">
+            <span>${esc(b.title.slice(0,1))}</span>
+          </div>
+          <div class="book-title">${esc(b.title)}</div>
+          <div class="book-meta">${b.rating > 0 ? b.rating.toFixed(1) + '分' : '暂无评分'} · ${b.chapterCount || 0}章</div>
+        </div>`).join('') || '<div style="color:#999;padding:30px;text-align:center">还没有发布作品</div>'}
+    </div>`;
+}
+
+function toggleAuthorFollow() {
+  if (!currentUser) { alert('请先登录'); return; }
+  if (currentUser === currentAuthorView) { alert('不能关注自己'); return; }
+  const idx = authorFollows.indexOf(currentAuthorView);
+  if (idx >= 0) {
+    authorFollows.splice(idx, 1);
+  } else {
+    authorFollows.push(currentAuthorView);
+  }
+  localStorage.setItem('novelAuthorFollows', JSON.stringify(authorFollows));
+  renderAuthorProfile();
+}
+
+/* 头像颜色 */
+const AVATAR_COLORS = [
+  ['#FF6B6D','#E63A3C'], ['#FF9F43','#EE5A24'], ['#FECA57','#F39C12'],
+  ['#1DD1A1','#10AC84'], ['#54A0FF','#2E86DE'], ['#5F27CD','#4834D4'],
+  ['#FF6B9D','#E84393'], ['#00D2D3','#0ABDE3'],
+];
+let avatarColorIdx = 0;
+try { avatarColorIdx = parseInt(localStorage.getItem('avatarColor') || '0'); } catch(e) {}
+
+function openAvatarPicker() {
+  const box = $('avatarColors');
+  box.innerHTML = AVATAR_COLORS.map((c, i) =>
+    `<div onclick="pickAvatarColor(${i})" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,${c[0]},${c[1]});color:#fff;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;${i===avatarColorIdx?'outline:3px solid #333':''}">${esc(currentUser.charAt(0).toUpperCase())}</div>`
+  ).join('');
+  $('avatarModal').classList.add('show');
+}
+function closeAvatarModal() { $('avatarModal').classList.remove('show'); }
+function pickAvatarColor(i) {
+  avatarColorIdx = i;
+  localStorage.setItem('avatarColor', String(i));
+  closeAvatarModal();
+  renderProfile();
+}
 
 /* 评分 */
 function openRateModal(bookId, title) {
@@ -3809,7 +3913,7 @@ function renderUserArea() {
     area.innerHTML = `
       <div class="user-chip" onclick="toggleUserMenu(event)">
         <div class="user-avatar-wrap">
-          <div class="user-avatar">${esc(currentUser.charAt(0).toUpperCase())}</div>
+          <div class="user-avatar" style="background:linear-gradient(135deg,${AVATAR_COLORS[avatarColorIdx][0]},${AVATAR_COLORS[avatarColorIdx][1]})">${esc(currentUser.charAt(0).toUpperCase())}</div>
           <span class="msg-badge" id="msgBadge" style="display:none">0</span>
         </div>
         <span class="user-chip-name">${esc(currentUser)}</span>
