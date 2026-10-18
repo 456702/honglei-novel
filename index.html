@@ -526,6 +526,20 @@ img { display: block; max-width: 100%; }
 }
 .reader-root[data-width="narrow"] .rd-content { letter-spacing: .008em; }
 .reader-root[data-width="wide"] .rd-content { letter-spacing: .016em; }
+
+/* 版权水印：斜向平铺的淡色用户名，截图可追溯 */
+.rd-watermark {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  overflow: hidden;
+}
+.rd-watermark span {
+  position: absolute;
+  font-size: 13px; color: rgba(0,0,0,0.06);
+  white-space: nowrap; transform: rotate(-25deg);
+  user-select: none;
+}
+.reader-root[data-theme="dark"] .rd-watermark span { color: rgba(255,255,255,0.07); }
+.rd-paper { position: relative; }
 .rd-nav { display: flex; gap: 14px; margin-top: 42px; }
 .rd-nav-btn {
   flex: 1; height: 46px; border-radius: 12px; background: #fff;
@@ -1387,7 +1401,9 @@ img { display: block; max-width: 100%; }
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="8" cy="18" r="2" fill="currentColor"/></svg>
         </button>
       </div>
-      <div class="rd-paper" id="rdPaper"></div>
+      <div class="rd-paper" id="rdPaper">
+        <div class="rd-watermark" id="rdWatermark"></div>
+      </div>
     </div>
   </section>
 
@@ -2780,8 +2796,7 @@ async function renderReader(bookId, idx) {
   `;
 
   // 若正在听书，切章后同步重建朗读队列
-  if (listen.running) {
-    listen.chapters = chapters;
+  if (listen.running) {    listen.chapters = chapters;
     listen.book = b.id;
     listen.bookTitle = b.title;
     loadChapterForListen(0, !listen.paused);
@@ -2790,6 +2805,22 @@ async function renderReader(bookId, idx) {
   readProgress[b.id] = { idx: idx, title: c.title, time: Date.now() };
   saveProgress();
   renderTocList(chapters, idx);
+  renderWatermark();
+}
+
+/* 版权水印：在书页背景平铺当前用户名，截图可追溯泄露者 */
+function renderWatermark() {
+  const wm = $('rdWatermark');
+  if (!wm) return;
+  const name = currentUser || '游客';
+  const text = `红雷小说·${name}`;
+  let html = '';
+  for (let y = 0; y < 6; y++) {
+    for (let x = 0; x < 4; x++) {
+      html += `<span style="left:${x * 28 + (y % 2) * 14}%;top:${y * 22}%">${text}</span>`;
+    }
+  }
+  wm.innerHTML = html;
 }
 
 function prevChapter() {
