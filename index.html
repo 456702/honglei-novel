@@ -1914,9 +1914,13 @@ img { display: block; max-width: 100%; }
     <button class="auth-close" onclick="closeAvatarModal()">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
     </button>
-    <div class="sheet-title">🎨 选择头像颜色</div>
-    <div id="avatarColors" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:20px 0"></div>
-    <div style="font-size:12px;color:#999">头像会显示你的用户名首字母</div>
+    <div class="sheet-title">📷 换头像</div>
+    <div style="width:80px;height:80px;border-radius:50%;overflow:hidden;margin:16px auto;background:#f0f0f0;display:flex;align-items:center;justify-content:center">
+      <img id="avatarPreview" style="width:100%;height:100%;object-fit:cover" alt="">
+    </div>
+    <input type="file" id="avatarFile" accept="image/*" style="display:none" onchange="handleAvatarUpload(event)">
+    <button class="btn btn-primary" style="margin-bottom:10px" onclick="$('avatarFile').click()">选择图片</button>
+    <div style="font-size:12px;color:#999">支持 JPG/PNG，建议正方形图片</div>
   </div>
 </div>
 
@@ -3233,7 +3237,7 @@ async function renderProfileAsync() {
   c.innerHTML = `
     ${rejected.length ? rejectNoticeHtml(rejected) : ''}
     <div class="profile-head">
-      <div class="profile-avatar" style="cursor:pointer;background:linear-gradient(135deg,${AVATAR_COLORS[avatarColorIdx][0]},${AVATAR_COLORS[avatarColorIdx][1]})" onclick="openAvatarPicker()" title="点击换头像">${esc(currentUser.charAt(0).toUpperCase())}</div>
+      <div class="profile-avatar" style="cursor:pointer;overflow:hidden" onclick="openAvatarPicker()" title="点击换头像">${avatarHtml(esc(currentUser.charAt(0).toUpperCase()))}</div>
       <div style="flex:1;min-width:0">
         <div class="profile-name">
           ${esc(currentUser)}
@@ -3535,28 +3539,46 @@ function toggleAuthorFollow() {
   renderAuthorProfile();
 }
 
-/* 头像颜色 */
-const AVATAR_COLORS = [
-  ['#FF6B6D','#E63A3C'], ['#FF9F43','#EE5A24'], ['#FECA57','#F39C12'],
-  ['#1DD1A1','#10AC84'], ['#54A0FF','#2E86DE'], ['#5F27CD','#4834D4'],
-  ['#FF6B9D','#E84393'], ['#00D2D3','#0ABDE3'],
-];
-let avatarColorIdx = 0;
-try { avatarColorIdx = parseInt(localStorage.getItem('avatarColor') || '0'); } catch(e) {}
+/* 头像 */
+let avatarData = '';
+try { avatarData = localStorage.getItem('avatarData') || ''; } catch(e) {}
 
 function openAvatarPicker() {
-  const box = $('avatarColors');
-  box.innerHTML = AVATAR_COLORS.map((c, i) =>
-    `<div onclick="pickAvatarColor(${i})" style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,${c[0]},${c[1]});color:#fff;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;${i===avatarColorIdx?'outline:3px solid #333':''}">${esc(currentUser.charAt(0).toUpperCase())}</div>`
-  ).join('');
+  updateAvatarPreview();
   $('avatarModal').classList.add('show');
 }
 function closeAvatarModal() { $('avatarModal').classList.remove('show'); }
-function pickAvatarColor(i) {
-  avatarColorIdx = i;
-  localStorage.setItem('avatarColor', String(i));
-  closeAvatarModal();
-  renderProfile();
+function updateAvatarPreview() {
+  const img = $('avatarPreview');
+  if (avatarData) { img.src = avatarData; }
+  else { img.src = ''; img.style.background = '#ddd'; }
+}
+function handleAvatarUpload(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  if (file.size > 500 * 1024) { alert('图片不能超过500KB'); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    // 压缩图片到 100x100
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 100; canvas.height = 100;
+      canvas.getContext('2d').drawImage(img, 0, 0, 100, 100);
+      avatarData = canvas.toDataURL('image/jpeg', 0.8);
+      localStorage.setItem('avatarData', avatarData);
+      updateAvatarPreview();
+      renderProfile();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+function avatarHtml(letter, size) {
+  if (avatarData) {
+    return `<img src="${avatarData}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+  }
+  return letter;
 }
 
 /* 评分 */
@@ -3913,7 +3935,7 @@ function renderUserArea() {
     area.innerHTML = `
       <div class="user-chip" onclick="toggleUserMenu(event)">
         <div class="user-avatar-wrap">
-          <div class="user-avatar" style="background:linear-gradient(135deg,${AVATAR_COLORS[avatarColorIdx][0]},${AVATAR_COLORS[avatarColorIdx][1]})">${esc(currentUser.charAt(0).toUpperCase())}</div>
+          <div class="user-avatar" style="overflow:hidden">${avatarHtml(esc(currentUser.charAt(0).toUpperCase()))}</div>
           <span class="msg-badge" id="msgBadge" style="display:none">0</span>
         </div>
         <span class="user-chip-name">${esc(currentUser)}</span>
