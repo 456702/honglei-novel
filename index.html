@@ -1836,7 +1836,7 @@ img { display: block; max-width: 100%; }
       </div>
 
       <button class="auth-submit" type="submit" id="registerSubmit">注 册</button>
-      <div class="auth-legal">注册即代表同意《用户协议》与《隐私政策》</div>
+      <div class="auth-legal">注册即代表同意<a onclick="openAgreement('user')" style="color:var(--tomato);cursor:pointer">《用户协议》</a>与<a onclick="openAgreement('privacy')" style="color:var(--tomato);cursor:pointer">《隐私政策》</a></div>
     </form>
 
     <div class="auth-foot" id="authFoot"></div>
@@ -1924,17 +1924,28 @@ img { display: block; max-width: 100%; }
   </div>
 </div>
 
+<!-- ============ 协议弹窗 ============ -->
+<div class="modal-mask" id="agreementModal">
+  <div class="sheet-card" style="max-width:600px;max-height:80vh;overflow-y:auto">
+    <button class="auth-close" onclick="closeAgreement()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="sheet-title" id="agreementTitle">用户协议</div>
+    <div id="agreementBody" style="font-size:13px;line-height:1.8;color:#333;margin-top:14px"></div>
+  </div>
+</div>
+
 <!-- ============ 充值弹窗 ============ -->
 <div class="modal-mask" id="rechargeModal">
   <div class="sheet-card">
     <button class="auth-close" onclick="closeRecharge()">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
     </button>
-    <div class="sheet-title">💰 充值雷碧</div>
+    <div class="sheet-title">💰 充值雷币</div>
     <div style="text-align:center;margin:16px 0">
       <div style="font-size:13px;color:#999">当前余额</div>
       <div style="font-size:32px;font-weight:700;color:var(--tomato)" id="rechargeBalance">0</div>
-      <div style="font-size:12px;color:#999">雷碧</div>
+      <div style="font-size:12px;color:#999">雷币</div>
     </div>
     <div style="font-size:13px;font-weight:600;margin-bottom:10px">选择金额</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px" id="rechargeOptions">
@@ -1973,7 +1984,7 @@ img { display: block; max-width: 100%; }
       </div>
     </div>
     <button class="auth-submit" onclick="doRecharge()">立即充值</button>
-    <div style="font-size:11px;color:#bbb;text-align:center;margin-top:10px">充值即表示同意《充值协议》，雷碧仅用于本站打赏作者，不可退款</div>
+    <div style="font-size:11px;color:#bbb;text-align:center;margin-top:10px">充值即表示同意<a onclick="openAgreement('recharge')" style="color:#bbb;cursor:pointer">《充值协议》</a>，雷币仅用于本站打赏作者，不可退款</div>
   </div>
 </div>
 
@@ -3325,7 +3336,7 @@ async function renderProfileAsync() {
         </div>
         <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
           <button class="btn btn-line" style="font-size:13px;padding:7px 14px" onclick="openMessages()">✉️ 私信</button>
-          <button class="btn btn-primary" style="font-size:13px;padding:7px 14px" onclick="openRecharge()">💰 雷碧: ${leiBi}个 · 充值</button>
+          <button class="btn btn-primary" style="font-size:13px;padding:7px 14px" onclick="openRecharge()">💰 雷币: ${leiBi}个 · 充值</button>
         </div>
       </div>
     </div>
@@ -3556,6 +3567,49 @@ let rechargeAmount = 0;
 let payMethod = 'wx';
 try { leiBi = parseInt(localStorage.getItem('leiBi') || '0'); } catch(e) {}
 
+/* 协议弹窗 */
+const AGREEMENTS = {
+  user: {
+    title: '用户协议',
+    body: `欢迎使用红雷小说！使用本站即表示您同意以下条款：<br><br>
+1. 您须年满18周岁，或在监护人陪同下使用。<br>
+2. 您注册的账号仅限本人使用，不得转让、出借或出售。<br>
+3. 您对自己发布的内容（书评、私信、举报等）负责，不得发布违法、色情、暴力、侵犯他人权益的内容。<br>
+4. 本站内容来自作者投稿，版权归原作者所有，未经授权不得转载。<br>
+5. 您不得利用本站从事任何违法活动，包括但不限于爬虫、攻击、刷屏。<br>
+6. 本站保留对违规账号封禁的权利。<br>
+7. 如本协议有更新，会在本站公告，继续使用即视为同意。`
+  },
+  privacy: {
+    title: '隐私政策',
+    body: `我们重视您的隐私：<br><br>
+1. 我们收集您的用户名、邮箱/手机号，仅用于登录验证和账号安全。<br>
+2. 我们不会向第三方出售您的个人信息。<br>
+3. 阅读记录、书架等数据存储在您本地浏览器中。<br>
+4. 举报内容仅管理员可见，不会公开您的身份。<br>
+5. 如您要求删除账号，我们会清除您的个人信息。<br>
+6. 我们使用 Supabase 作为后端服务，数据存储在其安全服务器上。`
+  },
+  recharge: {
+    title: '充值协议',
+    body: `充值前请仔细阅读：<br><br>
+1. 1元人民币 = 10雷币，雷币是本站虚拟货币，仅用于打赏作者。<br>
+2. 雷币充值成功后立即到账，不可退款、不可兑换现金。<br>
+3. 雷币仅在本站内有效，过期时间为1年。<br>
+4. 如遇支付问题（扣款未到账），请通过站内私信联系管理员，我们会在24小时内处理。<br>
+5. 严禁利用充值进行洗钱、套现等违法活动，违规账号将被封禁。<br>
+6. 本站保留调整充值比例的权利，但会提前公告。`
+  }
+};
+function openAgreement(type) {
+  const a = AGREEMENTS[type];
+  if (!a) return;
+  $('agreementTitle').textContent = a.title;
+  $('agreementBody').innerHTML = a.body;
+  $('agreementModal').classList.add('show');
+}
+function closeAgreement() { $('agreementModal').classList.remove('show'); }
+
 /* 充值 */
 function openRecharge() {
   if (!currentUser) { alert('请先登录'); return; }
@@ -3576,12 +3630,12 @@ function pickPayMethod(m) {
 function doRecharge() {
   if (!rechargeAmount) { alert('请选择充值金额'); return; }
   // 实际接入支付时，这里调用后端接口生成支付链接
-  // 目前先模拟：充值成功后加雷碧
+  // 目前先模拟：充值成功后加雷币
   const getBi = rechargeAmount * 10;
   leiBi += getBi;
   localStorage.setItem('leiBi', String(leiBi));
   $('rechargeBalance').textContent = leiBi;
-  alert(`充值成功！+${getBi} 雷碧\n（实际支付需接入微信/支付宝商户接口）`);
+  alert(`充值成功！+${getBi} 雷币\n（实际支付需接入微信/支付宝商户接口）`);
   closeRecharge();
   renderProfile();
 }
