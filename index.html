@@ -151,6 +151,14 @@ img { display: block; max-width: 100%; }
   color: #fff; font-size: 13px; font-weight: 700;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
+.user-avatar-wrap { position: relative; display: inline-flex; }
+.msg-badge {
+  position: absolute; top: -4px; right: -6px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  background: #E63A3C; color: #fff; font-size: 10px; font-weight: 700;
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  border: 2px solid #fff; line-height: 1;
+}
 .user-chip-name { font-size: 14px; font-weight: 500; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .user-menu {
@@ -3489,6 +3497,7 @@ async function loadChat(name) {
     }).join('');
     $('msgChatBody').scrollTop = $('msgChatBody').scrollHeight;
     await api('/mark-read', { user: currentUser });
+    refreshMsgBadge();
   } catch (e) { console.error(e); }
 }
 
@@ -3677,11 +3686,15 @@ function renderUserArea() {
   if (currentUser) {
     area.innerHTML = `
       <div class="user-chip" onclick="toggleUserMenu(event)">
-        <div class="user-avatar">${esc(currentUser.charAt(0).toUpperCase())}</div>
+        <div class="user-avatar-wrap">
+          <div class="user-avatar">${esc(currentUser.charAt(0).toUpperCase())}</div>
+          <span class="msg-badge" id="msgBadge" style="display:none">0</span>
+        </div>
         <span class="user-chip-name">${esc(currentUser)}</span>
         ${isAdmin() ? '<span class="vip-tag">管理员</span>' : ''}
       </div>
       <div class="user-menu" id="userMenu">
+        <div class="user-menu-item" onclick="openMessages();closeUserMenu()">✉️ 私信</div>
         <div class="user-menu-item" onclick="navigate('profile');closeUserMenu()">👤 个人中心</div>
         <div class="user-menu-item" onclick="navigate('shelf');closeUserMenu()">📚 我的书架</div>
         <div class="user-menu-item" onclick="navigate('mypublish');closeUserMenu()">✍️ 我的发布</div>
@@ -3691,9 +3704,27 @@ function renderUserArea() {
         <div class="user-menu-sep"></div>
         <div class="user-menu-item danger" onclick="doLogout();closeUserMenu()">🚪 退出登录</div>
       </div>`;
+    refreshMsgBadge();
   } else {
     area.innerHTML = `<button class="btn-login" onclick="openAuth('login')">登录 / 注册</button>`;
   }
+}
+
+/* 未读消息红点 */
+async function refreshMsgBadge() {
+  if (!currentUser) return;
+  try {
+    const data = await api('/list-messages', { user: currentUser });
+    const unread = data.unread || 0;
+    const badge = $('msgBadge');
+    if (!badge) return;
+    if (unread > 0) {
+      badge.style.display = 'flex';
+      badge.textContent = unread > 99 ? '99+' : unread;
+    } else {
+      badge.style.display = 'none';
+    }
+  } catch (e) { /* ignore */ }
 }
 
 function toggleUserMenu(e) {
@@ -4817,6 +4848,9 @@ async function init() {
 
 /* 启动（必须放在所有 const/let 声明之后） */
 init();
+
+/* 每 30 秒刷新未读消息红点 */
+setInterval(() => { if (currentUser) refreshMsgBadge(); }, 30000);
 
 /* 供自动化测试使用：把纯函数导出（浏览器里无害，只在有 module 环境时生效） */
 if (typeof module !== 'undefined' && module.exports) {
