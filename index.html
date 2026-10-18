@@ -527,6 +527,71 @@ img { display: block; max-width: 100%; }
   word-break: break-word;
   user-select: none; -webkit-user-select: none;
 }
+
+/* ===== 私信界面 ===== */
+.msg-wrap {
+  display: flex; max-width: 1100px; margin: 0 auto;
+  height: calc(100vh - var(--nav-h)); background: #fff;
+  border-radius: 14px; overflow: hidden; box-shadow: var(--shadow);
+}
+.msg-sidebar {
+  width: 280px; border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; flex-shrink: 0;
+}
+.msg-sidebar-head {
+  padding: 16px 18px; font-size: 17px; font-weight: 700;
+  border-bottom: 1px solid var(--line);
+}
+.msg-search {
+  margin: 12px; padding: 8px 12px; border: 1px solid var(--line-2);
+  border-radius: 8px; font-size: 13px; outline: none;
+}
+.msg-search:focus { border-color: var(--tomato); }
+.msg-contact-list { flex: 1; overflow-y: auto; }
+.msg-contact {
+  padding: 12px 16px; cursor: pointer; display: flex; gap: 10px;
+  align-items: center; border-bottom: 1px solid var(--line);
+  transition: background .15s;
+}
+.msg-contact:hover { background: var(--bg-gray); }
+.msg-contact.active { background: var(--tomato-light); }
+.msg-contact-avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: linear-gradient(135deg,#FF6B6D,#E63A3C); color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700; flex-shrink:0;
+}
+.msg-contact-name { font-size: 14px; font-weight: 600; }
+.msg-contact-sub { font-size: 12px; color: var(--text-4); margin-top: 2px; }
+.msg-chat { flex: 1; display: flex; flex-direction: column; }
+.msg-chat-head {
+  padding: 16px 20px; font-size: 15px; font-weight: 700;
+  border-bottom: 1px solid var(--line);
+}
+.msg-chat-body { flex: 1; overflow-y: auto; padding: 20px; background: var(--bg-page); }
+.msg-empty { text-align: center; color: var(--text-4); padding: 60px 0; }
+.msg-bubble-row { display: flex; margin-bottom: 14px; }
+.msg-bubble-row.me { justify-content: flex-end; }
+.msg-bubble {
+  max-width: 65%; padding: 10px 14px; border-radius: 12px; font-size: 14px;
+  line-height: 1.5; word-break: break-word;
+}
+.msg-bubble-row.me .msg-bubble { background: var(--tomato); color: #fff; border-bottom-right-radius: 4px; }
+.msg-bubble-row.other .msg-bubble { background: #fff; color: var(--text); border-bottom-left-radius: 4px; box-shadow: var(--shadow-s); }
+.msg-bubble-time { font-size: 11px; color: var(--text-4); margin-top: 4px; }
+.msg-bubble-row.me .msg-bubble-time { text-align: right; }
+.msg-chat-input {
+  display: flex; gap: 10px; padding: 14px 18px; border-top: 1px solid var(--line);
+}
+.msg-chat-input input {
+  flex: 1; height: 40px; padding: 0 14px; border: 1px solid var(--line-2);
+  border-radius: 20px; font-size: 14px; outline: none;
+}
+.msg-chat-input input:focus { border-color: var(--tomato); }
+.msg-chat-input button {
+  height: 40px; padding: 0 22px; background: var(--tomato); color: #fff;
+  border-radius: 20px; font-size: 14px; font-weight: 600;
+}
 .reader-root[data-width="narrow"] .rd-content { letter-spacing: .008em; }
 .reader-root[data-width="wide"] .rd-content { letter-spacing: .016em; }
 
@@ -1429,6 +1494,27 @@ img { display: block; max-width: 100%; }
     <div id="profileContent"></div>
   </section>
 
+  <!-- ===== 私信（洛谷式左右分栏） ===== -->
+  <section id="view-messages" class="view">
+    <div class="msg-wrap">
+      <div class="msg-sidebar">
+        <div class="msg-sidebar-head">✉️ 私信</div>
+        <input class="msg-search" type="text" id="msgSearch" placeholder="搜索联系人" oninput="renderContactList()">
+        <div class="msg-contact-list" id="msgContactList"></div>
+      </div>
+      <div class="msg-chat">
+        <div class="msg-chat-head" id="msgChatHead">选择一个联系人开始聊天</div>
+        <div class="msg-chat-body" id="msgChatBody">
+          <div class="msg-empty">暂无私信消息</div>
+        </div>
+        <div class="msg-chat-input" id="msgChatInput" style="display:none">
+          <input type="text" id="msgInput" placeholder="输入消息..." onkeydown="if(event.key==='Enter')sendCurrentMsg()">
+          <button onclick="sendCurrentMsg()">发送</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== 我的发布 ===== -->
   <section id="view-mypublish" class="view">
     <div class="sec-head">
@@ -1815,37 +1901,6 @@ img { display: block; max-width: 100%; }
     </div>
     <div id="reportHint" style="font-size:13px;color:#999;margin-bottom:12px">恶意举报会被限制 7 天内不能再举报</div>
     <button class="auth-submit" onclick="submitReport()">提交举报</button>
-  </div>
-</div>
-
-<!-- ============ 发消息弹窗 ============ -->
-<div class="modal-mask" id="msgModal">
-  <div class="sheet-card">
-    <button class="auth-close" onclick="closeMsgModal()">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-    </button>
-    <div class="sheet-title">✉️ 发消息</div>
-    <div class="field">
-      <div class="field-label">收件人（用户名）</div>
-      <input class="input" type="text" id="msgTo" placeholder="输入对方用户名">
-    </div>
-    <div class="field">
-      <div class="field-label">消息内容</div>
-      <textarea class="input" id="msgContent" style="min-height:100px" placeholder="说点什么..."></textarea>
-    </div>
-    <button class="auth-submit" onclick="submitMessage()">发送</button>
-  </div>
-</div>
-
-<!-- ============ 消息中心弹窗 ============ -->
-<div class="modal-mask" id="inboxModal">
-  <div class="sheet-card" style="max-width:560px">
-    <button class="auth-close" onclick="closeInboxModal()">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-    </button>
-    <div class="sheet-title">✉️ 消息中心</div>
-    <div id="inboxList" style="max-height:350px;overflow-y:auto;margin-bottom:14px"></div>
-    <button class="auth-submit" onclick="openMsgModal()">写新消息</button>
   </div>
 </div>
 
@@ -2410,7 +2465,7 @@ function moderateText(text) {
 const VIEW_IDS = {
   home: 'view-home', category: 'view-category', rank: 'view-rank',
   detail: 'view-detail', reader: 'view-reader', shelf: 'view-shelf',
-  profile: 'view-profile', mypublish: 'view-mypublish'
+  profile: 'view-profile', mypublish: 'view-mypublish', messages: 'view-messages'
 };
 
 function navigate(view, bookId, chapterIdx) {
@@ -3120,8 +3175,7 @@ async function renderProfileAsync() {
           <div><div class="pstat-v">${myBooks.length}</div><div class="pstat-k">作品</div></div>
         </div>
         <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="btn btn-line" style="font-size:13px;padding:7px 14px" onclick="openInboxModal()">✉️ 消息中心</button>
-          <button class="btn btn-line" style="font-size:13px;padding:7px 14px" onclick="openMsgModal()">✏️ 发消息</button>
+          <button class="btn btn-line" style="font-size:13px;padding:7px 14px" onclick="openMessages()">✉️ 私信</button>
         </div>
       </div>
     </div>
@@ -3339,9 +3393,11 @@ async function api(path, body) {
 }
 
 /* ============================================================
-   举报 + 站内消息
+   举报 + 站内私信（洛谷式聊天界面）
    ============================================================ */
 let reportBookId = 0;
+let msgContacts = [];       // [{name, last, time}]
+let currentChatUser = null;
 
 function openReportModal(bookId, title) {
   if (!currentUser) { alert('请先登录再举报'); return; }
@@ -3365,49 +3421,88 @@ async function submitReport() {
   } catch (e) { alert(e.message); }
 }
 
-/* 消息 */
-function openMsgModal(toUser) {
+/* 打开私信视图 */
+async function openMessages() {
   if (!currentUser) { alert('请先登录'); return; }
-  $('msgTo').value = toUser || '';
-  $('msgContent').value = '';
-  $('msgModal').classList.add('show');
-}
-function closeMsgModal() { $('msgModal').classList.remove('show'); }
-
-async function submitMessage() {
-  const to = $('msgTo').value.trim();
-  const content = $('msgContent').value.trim();
-  if (!to) { alert('请输入收件人用户名'); return; }
-  if (!content) { alert('请输入消息内容'); return; }
-  try {
-    await api('/send-message', { from_user: currentUser, to_user: to, content });
-    alert('发送成功');
-    closeMsgModal();
-  } catch (e) { alert(e.message); }
+  navigate('messages');
+  await loadContacts();
 }
 
-async function openInboxModal() {
-  if (!currentUser) { alert('请先登录'); return; }
-  $('inboxModal').classList.add('show');
-  await loadInbox();
-}
-function closeInboxModal() { $('inboxModal').classList.remove('show'); }
-
-async function loadInbox() {
+/* 加载联系人列表（从收发消息里提取对话对象） */
+async function loadContacts() {
   try {
     const data = await api('/list-messages', { user: currentUser });
-    const box = $('inboxList');
-    if (!data.inbox.length) { box.innerHTML = '<div style="text-align:center;color:#999;padding:30px">暂无消息</div>'; return; }
-    box.innerHTML = data.inbox.map(m => `
-      <div style="padding:12px;border-bottom:1px solid var(--line)">
-        <div style="font-size:13px;color:#999;margin-bottom:4px">
-          来自 <b style="color:var(--text)">${esc(m.from_user)}</b> · ${new Date(m.created_at).toLocaleString()}
-          ${m.read_at ? '' : '<span style="color:var(--tomato);margin-left:6px">未读</span>'}
-        </div>
-        <div style="font-size:14px;color:var(--text-2)">${esc(m.content)}</div>
-      </div>`).join('');
+    const map = {};
+    [...(data.inbox||[]), ...(data.outbox||[])].forEach(m => {
+      const other = m.from_user === currentUser ? m.to_user : m.from_user;
+      if (!map[other] || new Date(m.created_at) > new Date(map[other].time)) {
+        map[other] = { name: other, last: m.content, time: m.created_at };
+      }
+    });
+    msgContacts = Object.values(map).sort((a,b) => new Date(b.time) - new Date(a.time));
+    renderContactList();
+  } catch (e) { console.error(e); }
+}
+
+function renderContactList() {
+  const q = ($('msgSearch').value || '').toLowerCase();
+  const list = msgContacts.filter(c => !q || c.name.toLowerCase().includes(q));
+  if (!list.length) {
+    $('msgContactList').innerHTML = '<div style="padding:30px;text-align:center;color:#999;font-size:13px">暂无联系人</div>';
+    return;
+  }
+  $('msgContactList').innerHTML = list.map(c => `
+    <div class="msg-contact ${currentChatUser === c.name ? 'active' : ''}" onclick="openChat('${esc(c.name)}')">
+      <div class="msg-contact-avatar">${esc(c.name.charAt(0).toUpperCase())}</div>
+      <div style="min-width:0;flex:1">
+        <div class="msg-contact-name">${esc(c.name)}</div>
+        <div class="msg-contact-sub">${esc((c.last||'').slice(0,20))}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* 打开与某人的聊天 */
+async function openChat(name) {
+  currentChatUser = name;
+  $('msgChatHead').textContent = name;
+  $('msgChatInput').style.display = 'flex';
+  renderContactList();
+  await loadChat(name);
+}
+
+async function loadChat(name) {
+  try {
+    const data = await api('/list-messages', { user: currentUser });
+    const msgs = [...(data.inbox||[]), ...(data.outbox||[])]
+      .filter(m => (m.from_user === currentUser && m.to_user === name) || (m.from_user === name && m.to_user === currentUser))
+      .sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+    if (!msgs.length) {
+      $('msgChatBody').innerHTML = '<div class="msg-empty">暂无私信消息</div>';
+      return;
+    }
+    $('msgChatBody').innerHTML = msgs.map(m => {
+      const me = m.from_user === currentUser;
+      const time = new Date(m.created_at).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      return `<div class="msg-bubble-row ${me ? 'me' : 'other'}">
+        <div class="msg-bubble">${esc(m.content)}<div class="msg-bubble-time">${time}</div></div>
+      </div>`;
+    }).join('');
+    $('msgChatBody').scrollTop = $('msgChatBody').scrollHeight;
     await api('/mark-read', { user: currentUser });
-  } catch (e) { $('inboxList').innerHTML = '<div style="color:#999;text-align:center;padding:20px">' + e.message + '</div>'; }
+  } catch (e) { console.error(e); }
+}
+
+async function sendCurrentMsg() {
+  if (!currentChatUser) return;
+  const input = $('msgInput');
+  const content = input.value.trim();
+  if (!content) return;
+  try {
+    await api('/send-message', { from_user: currentUser, to_user: currentChatUser, content });
+    input.value = '';
+    await loadChat(currentChatUser);
+    await loadContacts();
+  } catch (e) { alert(e.message); }
 }
 
 function startCountdown(btnId, key) {
